@@ -35,8 +35,9 @@ public:
     string getimageFile();
 
     void readImage();
-    void writeImage();
+    void writeImage(const string &outFile);
 
+    void transformToComplentary();
     void rgbTester();
 
 private:

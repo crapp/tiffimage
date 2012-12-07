@@ -17,7 +17,7 @@
 
 string TiffImage::hexadecimal = "0123456789ABCDEF";
 
-TiffImage::TiffImage()
+TiffImage::TiffImage() : m_imgBuffer(0)
 {
 }
 
@@ -68,6 +68,33 @@ void TiffImage::readImage()
         }
         TIFFClose(tif);
     }
+}
+
+void TiffImage::writeImage(const string &outFile)
+{
+    TIFF *output_image;
+
+    // Open the TIFF file
+    if ((output_image = TIFFOpen(outFile.c_str(), "w")) == 0)
+    {
+      cerr << "Unable to write tif file: " << output_filename << endl;
+    }
+
+    // We need to set some values for basic tags before we can add any data
+    TIFFSetField(output_image, TIFFTAG_IMAGEWIDTH, m_width);
+    TIFFSetField(output_image, TIFFTAG_IMAGELENGTH, m_height);
+    TIFFSetField(output_image, TIFFTAG_BITSPERSAMPLE, 8);
+    TIFFSetField(output_image, TIFFTAG_SAMPLESPERPIXEL, 4);
+    TIFFSetField(output_image, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+
+    TIFFSetField(output_image, TIFFTAG_COMPRESSION, COMPRESSION_DEFLATE);
+    TIFFSetField(output_image, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+
+    // Write the information to the file
+    TIFFWriteEncodedStrip(output_image, 0, &m_image_data[0], m_width*m_height * 4);
+
+    // Close the file
+    TIFFClose(output_image);
 }
 
 vector<int> TiffImage::getComplementaryColour(const vector<int> &rgb)
@@ -140,4 +167,21 @@ void TiffImage::rgbTester()
     tester.push_back(150);
     tester.push_back(0);
     tester = getComplementaryColour(tester);
+}
+
+
+void TiffImage::transformToComplentary()
+{
+    if (this->m_imgBuffer != 0)
+    {
+        vector<int> rgba;
+        vector<uint32>::iterator vit = m_imgBuffer.begin();
+        for (auto i : m_imgBuffer)
+        {
+            rgba.push_back(TIFFGetR(i));
+            rgba.push_back(TIFFGetG(i));
+            rgba.push_back(TIFFGetB(i));
+            rgba = getComplementaryColour(rgba);
+        }
+    }
 }
