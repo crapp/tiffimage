@@ -13,45 +13,35 @@
 //    You should have received a copy of the GNU General Public License
 //    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef TIFFIMAGE_H
-#define TIFFIMAGE_H
+#ifndef IMAGE_H
+#define IMAGE_H
 
 #include <iostream>
 #include <vector>
 #include <string>
-#include <tiffio.h>
-
-#include "image.h"
+#include <sstream>
+#include <algorithm> //for transform
 
 using namespace std;
 
-class TiffImage : protected Image
+class Image
 {
 public:
-    TiffImage();
-
-    void setimageFile(const string &imgFile);
-    string getimageFile();
-
-    void readImage();
-    bool writeImage(const string &outFile);
-
-    void transformToComplentary();
-
+    Image();
+    virtual ~Image();
+protected:
+    //Provide some basic Functions that all image formats may find useful.
+    //converts rgb(a) values to hex values
+    string rgbToHex(const vector<int> &rgb);
+    //converts hex to rgb(a) values
+    vector<int> hextToRGB(const string &hexval);
+    //subtracs two hex values. in this case it subtractes the given hex value
+    //from white (FFFFFF) which results in the complementary color.
+    string subtractHex(const string &hexval);
+    //transform hex to decimal
+    int hexToDec(const string &hexval);
 private:
-    const static uint32 bUIntValue = 4278190080;
-
-    string compressionInput;
-    string compressionOutput;
-
-    vector<uint32> imgBuffer; //holds an image buffer
-    uint32 imgWidth, imgHeight; //width and height
-
-    string imageFile; //path to image file
-
-    //return complementary color as vector<int>
-    int getComplementaryColour(const vector<int> &rgb);
-
+    static string hexadecimal;
 };
 
-#endif // TIFFIMAGE_H
+#endif // IMAGE_H

@@ -15,54 +15,47 @@
 
 #include "tiffimage.h"
 
-string TiffImage::hexadecimal = "0123456789ABCDEF";
-
-TiffImage::TiffImage() : m_imgBuffer(0)
+TiffImage::TiffImage() : compressionInput(), compressionOutput()
 {
 }
 
 void TiffImage::setimageFile(const string &imgFile)
 {
-    this->m_imageFile = imgFile;
+    this->imageFile = imgFile;
 }
 
 string TiffImage::getimageFile()
 {
-    return this->m_imageFile;
+    return this->imageFile;
 }
 
 void TiffImage::readImage()
 {
     TIFF *tif = TIFFOpen(this->getimageFile().c_str(), "r");
     if (tif) {
-        uint32 w, h;
         size_t npixels;
         uint32* raster;
 
-        TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &w);
-        TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &h);
-        npixels = w * h;
+        TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &imgWidth);
+        TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &imgHeight);
+        npixels = imgWidth * imgHeight; //no of pixels in image
         raster = (uint32*) _TIFFmalloc(npixels * sizeof (uint32));
         if (raster != NULL) {
-            if (TIFFReadRGBAImage(tif, w, h, raster, 0)) {
+            if (TIFFReadRGBAImage(tif, imgWidth, imgHeight, raster, 0)) {
                 //...process raster data...
                 //write data in vector member so we can do with it what we want
 
                 uint32 *rasterPrint = raster;
                 for(size_t n=0;n<npixels;n++)
                 {
-                    m_imgBuffer.push_back(raster[n]);
+                    imgBuffer.push_back(raster[n]);
                     cout << "New Pixel R: ";
                     cout << TIFFGetR(*rasterPrint) << " G: ";
                     cout << TIFFGetG(*rasterPrint) << " B: ";
-                    cout << TIFFGetB(*rasterPrint) << endl;
+                    cout << TIFFGetB(*rasterPrint) << " uint32: ";
+                    cout << *rasterPrint << endl;
                     *rasterPrint++;
                 }
-                cout << raster[0] << endl;
-                cout << raster[1] << endl;
-                cout << TIFFGetR(*raster) << endl;
-                cout << TIFFGetG(*raster) << endl;
-                cout << TIFFGetB(*raster) << endl;
             }
             _TIFFfree(raster);
         }
@@ -70,19 +63,20 @@ void TiffImage::readImage()
     }
 }
 
-void TiffImage::writeImage(const string &outFile)
+bool TiffImage::writeImage(const string &outFile)
 {
+    bool retBool = false;
     TIFF *output_image;
 
     // Open the TIFF file
     if ((output_image = TIFFOpen(outFile.c_str(), "w")) == 0)
     {
-      cerr << "Unable to write tif file: " << output_filename << endl;
+      cerr << "Unable to write tif file: " << outFile << endl;
     }
 
     // We need to set some values for basic tags before we can add any data
-    TIFFSetField(output_image, TIFFTAG_IMAGEWIDTH, m_width);
-    TIFFSetField(output_image, TIFFTAG_IMAGELENGTH, m_height);
+    TIFFSetField(output_image, TIFFTAG_IMAGEWIDTH, imgWidth);
+    TIFFSetField(output_image, TIFFTAG_IMAGELENGTH, imgHeight);
     TIFFSetField(output_image, TIFFTAG_BITSPERSAMPLE, 8);
     TIFFSetField(output_image, TIFFTAG_SAMPLESPERPIXEL, 4);
     TIFFSetField(output_image, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
@@ -91,97 +85,44 @@ void TiffImage::writeImage(const string &outFile)
     TIFFSetField(output_image, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
 
     // Write the information to the file
-    TIFFWriteEncodedStrip(output_image, 0, &m_image_data[0], m_width*m_height * 4);
+    if (TIFFWriteEncodedStrip(output_image, 0, &imgBuffer[0], imgWidth*imgHeight * 4) > -1)
+    {
+        retBool= true; //if bigger than -1 writing was successful
+    }
+
 
     // Close the file
     TIFFClose(output_image);
+    return retBool;
 }
 
-vector<int> TiffImage::getComplementaryColour(const vector<int> &rgb)
+int TiffImage::getComplementaryColour(const vector<int> &rgb)
 {
-    vector<int> complementaryRGB;
-    string hexvalue = this->rgbToHex(rgb);
-    string subtractedHex = this->subtractHex(hexvalue);
-    complementaryRGB = this->hextToRGB(subtractedHex);
-    return complementaryRGB;
+    string hexvalue = this->rgbToHex(rgb); //RGB to hex
+    string subtractedHex = this->subtractHex(hexvalue); //Get hex value of complementary color by subtracting from white
+    //complementaryRGB = this->hextToRGB(subtractedHex); //Transform back to RGB
+    return this->hexToDec(subtractedHex);
 }
-
-string TiffImage::rgbToHex(const vector<int> &rgb)
-{
-    //rgb to hex
-    string hexvalue = "";
-    ostringstream oss;
-    for (auto const &i : rgb)
-    {
-        oss << hex << i;
-        hexvalue.append(oss.str());
-        if (oss.str().compare("0") == 0)
-        {
-            hexvalue.append("0");
-        }
-        oss.str("");
-    }
-    transform(hexvalue.begin(), hexvalue.end(),hexvalue.begin(), ::toupper); //hexvalue to upper
-    return hexvalue;
-}
-
-vector<int> TiffImage::hextToRGB(const string &hexval)
-{
-    vector<int> complementaryRGB;
-    stringstream ss;
-    int j = 0;
-    for (uint i = 0 ; i < hexval.length(); i = i+2)
-    {
-        string rgbStr;
-        rgbStr += hexval[i];
-        rgbStr += hexval[i+1];
-        ss << hex << rgbStr;
-        ss >> j;
-        complementaryRGB.push_back(static_cast<int>(j));
-    }
-    return complementaryRGB;
-}
-
-string TiffImage::subtractHex(const string &hexval)
-{
-    string hexWhite = "FFFFFF";
-    string subtractedHex;
-    stringstream ss;
-    for (int i = hexval.length() - 1; i >= 0 ; i--)
-    {
-        //get hex value when we subtract two other hex values
-        int posHexWhite = this->hexadecimal.find(hexWhite[i]);
-        int posHexval = this->hexadecimal.find(hexval[i]);
-        int newPos = posHexWhite - posHexval;
-        ss << hexadecimal.at(newPos); //use a stringstream otherwise there are strange side effects
-        subtractedHex.insert(0, ss.str()); //we start to subtract at the rightmost position but the hex has to be written from left to right
-        ss.str(""); //empty stringstream
-    }
-    return subtractedHex;
-}
-
-void TiffImage::rgbTester()
-{
-    vector<int> tester;
-    tester.push_back(100);
-    tester.push_back(150);
-    tester.push_back(0);
-    tester = getComplementaryColour(tester);
-}
-
 
 void TiffImage::transformToComplentary()
 {
-    if (this->m_imgBuffer != 0)
+    if (this->imgBuffer.size() > 0) //Look if there is something in the image Buffer
     {
         vector<int> rgba;
-        vector<uint32>::iterator vit = m_imgBuffer.begin();
-        for (auto i : m_imgBuffer)
+        int newDec = 0;
+        vector<uint32>::iterator vit = imgBuffer.begin();
+        for (auto i : imgBuffer) //Loop over Im age Buffer
         {
+            //Get RGB values
             rgba.push_back(TIFFGetR(i));
             rgba.push_back(TIFFGetG(i));
             rgba.push_back(TIFFGetB(i));
-            rgba = getComplementaryColour(rgba);
+            //request complementary color
+            newDec = getComplementaryColour(rgba);
+            *vit = bUIntValue + newDec; //use iterator to update data in buffer
+            vit++; //don't forget to increase the iterator so we look at the right position
+            //TODO: Is this vector growing and growing?
+            rgba.clear(); //deletes all entries from the vector, but what about its size?
         }
     }
 }
