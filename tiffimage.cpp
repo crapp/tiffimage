@@ -15,7 +15,7 @@
 
 #include "tiffimage.h"
 
-TiffImage::TiffImage() : compressionInput(), compressionOutput()
+TiffImage::TiffImage() : compressionOutput(5)
 {
 }
 
@@ -29,6 +29,29 @@ string TiffImage::getimageFile()
     return this->imageFile;
 }
 
+void TiffImage::setCompressionOutput(const uint &compressionLevel)
+{
+    //1 No Compression
+    //5 LZW
+    //7 JPEG
+    //32909 DEFLATE
+    vector<int> compLevels = {1, 5, 7, 32909};
+
+    if (find(compLevels.begin(), compLevels.end(), compressionLevel) != compLevels.end())
+    {
+        this->compressionOutput = compressionLevel;
+    }
+    else
+    {
+        cerr << "Supported values for compression are 5(LZW), 7(JPEG), 32909(DEFLATE)!" << endl;
+    }
+}
+
+uint TiffImage::getCompressionOuput()
+{
+    return this->compressionOutput;
+}
+
 void TiffImage::readImage()
 {
     TIFF *tif = TIFFOpen(this->getimageFile().c_str(), "r");
@@ -38,6 +61,7 @@ void TiffImage::readImage()
 
         TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &imgWidth);
         TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &imgHeight);
+        TIFFGetField(tif, TIFFTAG_ORIENTATION, &imgOrientation);
         npixels = imgWidth * imgHeight; //no of pixels in image
         raster = (uint32*) _TIFFmalloc(npixels * sizeof (uint32));
         if (raster != NULL) {
@@ -56,8 +80,26 @@ void TiffImage::readImage()
                     cout << *rasterPrint << endl;
                     *rasterPrint++;
                 }
+
             }
             _TIFFfree(raster);
+            //TIFFRedRGBAImage is starting in the lower left corner, so we
+            //got to swap our vector. this means we hve to swap first row with last
+            //and so on.
+            uint32 upBufPos, downBufPos;
+            for (uint32 i = 0 ; i < this->imgHeight / 2; i++)
+            {
+                for (uint32 j = 0 ; j < this->imgWidth; j++)
+                {
+                    upBufPos = i * this->imgWidth + j;
+                    if (i*j == 0)
+                    {
+                        upBufPos = i+j;
+                    }
+                    downBufPos = ((this->imgHeight - i - 1) * this->imgWidth) + j;
+                    swap(this->imgBuffer[upBufPos], this->imgBuffer[downBufPos]);
+                }
+            }
         }
         TIFFClose(tif);
     }
@@ -75,14 +117,15 @@ bool TiffImage::writeImage(const string &outFile)
     }
 
     // We need to set some values for basic tags before we can add any data
-    TIFFSetField(output_image, TIFFTAG_IMAGEWIDTH, imgWidth);
-    TIFFSetField(output_image, TIFFTAG_IMAGELENGTH, imgHeight);
+    TIFFSetField(output_image, TIFFTAG_IMAGEWIDTH, this->imgWidth);
+    TIFFSetField(output_image, TIFFTAG_IMAGELENGTH, this->imgHeight);
     TIFFSetField(output_image, TIFFTAG_BITSPERSAMPLE, 8);
     TIFFSetField(output_image, TIFFTAG_SAMPLESPERPIXEL, 4);
     TIFFSetField(output_image, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
 
-    TIFFSetField(output_image, TIFFTAG_COMPRESSION, COMPRESSION_DEFLATE);
+    TIFFSetField(output_image, TIFFTAG_COMPRESSION, this->getCompressionOuput());
     TIFFSetField(output_image, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+    TIFFSetField(output_image, TIFFTAG_ORIENTATION, this->imgOrientation);
 
     // Write the information to the file
     if (TIFFWriteEncodedStrip(output_image, 0, &imgBuffer[0], imgWidth*imgHeight * 4) > -1)
@@ -104,7 +147,7 @@ int TiffImage::getComplementaryColour(const vector<int> &rgb)
     return this->hexToDec(subtractedHex);
 }
 
-void TiffImage::transformToComplentary()
+void TiffImage::transformToComplementary()
 {
     if (this->imgBuffer.size() > 0) //Look if there is something in the image Buffer
     {
@@ -121,8 +164,16 @@ void TiffImage::transformToComplentary()
             newDec = getComplementaryColour(rgba);
             *vit = bUIntValue + newDec; //use iterator to update data in buffer
             vit++; //don't forget to increase the iterator so we look at the right position
-            //TODO: Is this vector growing and growing?
-            rgba.clear(); //deletes all entries from the vector, but what about its size?
+            rgba.clear(); //deletes all entries in the vector
+            rgba.shrink_to_fit(); //shrinks vector to fit actual size.
         }
+    }
+}
+
+void TiffImage::combineTwoTiff(const uint32 &startPos, TiffImage *timg)
+{
+    if (timg == 0)
+    {
+        //blub
     }
 }
