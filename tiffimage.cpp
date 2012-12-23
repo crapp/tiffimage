@@ -29,7 +29,7 @@ string TiffImage::getimageFile()
     return this->imageFile;
 }
 
-void TiffImage::setCompressionOutput(const uint &compressionLevel)
+void TiffImage::setCompressionOutput(const unsigned int &compressionLevel)
 {
     //1 No Compression
     //5 LZW
@@ -47,7 +47,7 @@ void TiffImage::setCompressionOutput(const uint &compressionLevel)
     }
 }
 
-uint TiffImage::getCompressionOuput()
+unsigned int TiffImage::getCompressionOuput()
 {
     return this->compressionOutput;
 }
@@ -76,11 +76,11 @@ void TiffImage::readImage()
                     cout << "New Pixel R: ";
                     cout << TIFFGetR(*rasterPrint) << " G: ";
                     cout << TIFFGetG(*rasterPrint) << " B: ";
-                    cout << TIFFGetB(*rasterPrint) << " uint32: ";
+                    cout << TIFFGetB(*rasterPrint) << " A: ";
+                    cout << TIFFGetA(*rasterPrint) << " uint32: ";
                     cout << *rasterPrint << endl;
                     *rasterPrint++;
                 }
-
             }
             _TIFFfree(raster);
             //TIFFRedRGBAImage is starting in the lower left corner, so we
@@ -119,6 +119,7 @@ bool TiffImage::writeImage(const string &outFile)
     // We need to set some values for basic tags before we can add any data
     TIFFSetField(output_image, TIFFTAG_IMAGEWIDTH, this->imgWidth);
     TIFFSetField(output_image, TIFFTAG_IMAGELENGTH, this->imgHeight);
+    //TODO: We should read these values from the input picture and use them accordingly.
     TIFFSetField(output_image, TIFFTAG_BITSPERSAMPLE, 8);
     TIFFSetField(output_image, TIFFTAG_SAMPLESPERPIXEL, 4);
     TIFFSetField(output_image, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
@@ -157,12 +158,15 @@ void TiffImage::transformToComplementary()
         for (auto i : imgBuffer) //Loop over Im age Buffer
         {
             //Get RGB values
-            rgba.push_back(TIFFGetR(i));
-            rgba.push_back(TIFFGetG(i));
-            rgba.push_back(TIFFGetB(i));
-            //request complementary color
-            newDec = getComplementaryColour(rgba);
-            *vit = bUIntValue + newDec; //use iterator to update data in buffer
+            if (i != 0)
+            {
+                rgba.push_back(TIFFGetR(i));
+                rgba.push_back(TIFFGetG(i));
+                rgba.push_back(TIFFGetB(i));
+                //request complementary color
+                newDec = getComplementaryColour(rgba);
+                *vit = bUIntValue + newDec; //use iterator to update data in buffer
+            }
             vit++; //don't forget to increase the iterator so we look at the right position
             rgba.clear(); //deletes all entries in the vector
             rgba.shrink_to_fit(); //shrinks vector to fit actual size.
@@ -170,10 +174,46 @@ void TiffImage::transformToComplementary()
     }
 }
 
-void TiffImage::combineTwoTiff(const uint32 &startPos, TiffImage *timg)
+void TiffImage::combineTwoTiff(const unsigned int &startPosX, const unsigned int &startPosY, TiffImage *timg)
 {
-    if (timg == 0)
+    if (timg != 0)
     {
-        //blub
+        /*
+         *  Top Left is the coordinates origin.
+         *  Keep in mind that the data is actually stored in a vector. This schematic
+         *  should help you to visualize where the vector positions are in concern
+         *  of row width.
+         *  0|
+         *  ----------------
+         *   |0  1  2  3  4  5  6
+         *   |7  8  9  10 11 12 13
+         *   |14 15 16 17 18 19 20
+         *   |21 22 23 24 25 26 27
+         */
+        if (startPosX + timg->imgWidth > this->imgWidth || startPosY + timg->imgHeight > this->imgHeight)
+        {
+            cerr << "Tiff that should be combined is either to large or you have to adjust the starting position" << endl;
+            return;
+        }
+        uint32 i = (startPosY * this->imgWidth) + startPosX;
+        uint32 pixelPerRowToPerform = timg->imgWidth;
+        uint32 bufferPos = 0;
+        for (auto pixelValue : timg->imgBuffer)
+        {
+            if (pixelPerRowToPerform == 0)
+            {
+                pixelPerRowToPerform = timg->imgWidth;
+                i += this->imgWidth - (startPosX + timg->imgWidth);
+            }
+            bufferPos = i;
+            if (pixelValue != 0)
+                imgBuffer[bufferPos] = pixelValue;
+            i++;
+            pixelPerRowToPerform--;
+        }
+    }
+    else
+    {
+        cerr << "TiffImage is NULL, nothing to do" << endl;
     }
 }

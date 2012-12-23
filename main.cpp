@@ -17,18 +17,28 @@
 #include <memory>
 #include "tiffimage.h"
 
+#define COMPLEMENTARY 0
+#define COMBINE 1
+
 using namespace std;
 
 int main()
 {
     unique_ptr<TiffImage> myimg(new TiffImage);
     unique_ptr<TiffImage> myimgOverlay(new TiffImage);
-    myimg->setimageFile("../TiffImage/Resources/tifftest2.tiff");
+    //myimg->setimageFile("../TiffImage/Resources/tifftest2.tiff");
+    myimg->setimageFile("/Users/chrwr/tiffCombineSource2.tiff");
+    myimgOverlay->setimageFile("/Users/chrwr/tiffCombineWith2.tiff");
     myimg->readImage();
-    myimg->transformToComplementary();
+    myimgOverlay->readImage();
+
+    if (COMPLEMENTARY == 1)
+        myimg->transformToComplementary();
+    if (COMBINE == 1)
+        myimg->combineTwoTiff(0, 100, &(*myimgOverlay));
 
     string outFile = getenv("HOME");
-    outFile += "/tifftestComplement1.tiff";
+    outFile += "/tifftestCombined2.tiff";
     if (myimg->writeImage(outFile))
     {
         cout << "Writing of ouput image file was successful" << endl;

@@ -35,25 +35,27 @@ public:
     void setimageFile(const string &imgFile);
     string getimageFile();
 
-    void setCompressionOutput(const uint &compressionLevel);
-    uint getCompressionOuput();
+    void setCompressionOutput(const unsigned int &compressionLevel);
+    unsigned int getCompressionOuput();
 
     void readImage();
     bool writeImage(const string &outFile);
 
+    //Transforms image by computing complementary colors for all Pixels.
     void transformToComplementary();
+
     //Combines two Images.
-    //startPos is the starting position
+    //startPosX, startPosY is the starting position.
     //timg is another instance of TiffImage. The Image Buffer will be used and all
     //Pixels in the original one will be substituted with the ones from the new buffer
     //We use here a raw Pointer so we can check for NULL, but the instance should have
     //been created as smart pointer
-    void combineTwoTiff(const uint32 &startPos, TiffImage *timg);
+    void combineTwoTiff(const unsigned int &startPosX, const unsigned int &startPosY, TiffImage *timg);
 
 private:
     const static uint32 bUIntValue = 4278190080;
 
-    uint compressionOutput;
+    unsigned int compressionOutput;
 
     vector<uint32> imgBuffer; //holds an image buffer
     uint32 imgWidth, imgHeight, imgOrientation; //width, height, orientation

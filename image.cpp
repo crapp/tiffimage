@@ -49,7 +49,7 @@ vector<int> Image::hextToRGB(const string &hexval)
     vector<int> complementaryRGB;
     stringstream ss;
     int j = 0;
-    for (uint i = 0 ; i < hexval.length(); i = i+2)
+    for (unsigned int i = 0 ; i < hexval.length(); i = i+2)
     {
         string rgbStr;
         rgbStr += hexval[i];
